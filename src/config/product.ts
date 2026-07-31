@@ -45,7 +45,6 @@ export const PRODUCT_CONFIG = {
     ],
   },
   demoUser: "현재 사용자",
-  supportEmail: "aria@example.invalid",
 } as const;
 
 export const AI_DRAFT_NOTICE =
