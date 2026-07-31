@@ -9,13 +9,16 @@ ARIA는 Next.js 정적 export로 배포되는 브라우저 애플리케이션입
 3. 키는 현재 탭의 모듈 메모리에만 유지됩니다.
 4. 분석 요청은 브라우저에서 Google Gemini로 직접 전송됩니다.
 5. 연구실, 프로토콜, 출처와 검토 데이터는 브라우저 IndexedDB에
-   저장됩니다. API 키는 IndexedDB에 저장하지 않습니다.
+   저장됩니다. 원본 미리보기와 복원을 위한 업로드 파일도 Blob 형태로
+   저장될 수 있습니다. API 키는 IndexedDB에 저장하지 않습니다.
+6. 앱 초기화나 브라우저 사이트 데이터 삭제 시 로컬 데이터와 원본 Blob이
+   함께 삭제됩니다. 중앙 백업이나 기기 간 동기화는 제공하지 않습니다.
 
 ## 배포
 
 - `next.config.ts`가 정적 export와 저장소 하위 경로를 설정합니다.
-- `.github/workflows/deploy-pages.yml`이 타입 검사, 테스트, 빌드와 Pages
-  배포를 수행합니다.
+- `.github/workflows/deploy-pages.yml`이 lint, 타입 검사, 테스트, 공개 안전
+  검사, 빌드와 Pages 배포를 수행합니다.
 - 서버 라우트, 배포 기본 키와 서버 데이터베이스는 사용하지 않습니다.
 
 ## 보안 경계

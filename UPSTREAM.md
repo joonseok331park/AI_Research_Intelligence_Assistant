@@ -5,7 +5,8 @@ Git 이력입니다.
 
 ## 기준점
 
-- 기준 저장소: `sangmyeongsheon/AI_Research_Intelligence_Assistant`
+- 기준 저장소:
+  [`sangmyeongsheon/AI_Research_Intelligence_Assistant`](https://github.com/sangmyeongsheon/AI_Research_Intelligence_Assistant)
 - 기준 브랜치: `main`
 - 기준 커밋: `82ce74eebe4d88b9b17df64fe84a4902928263e9`
 - 기준일: 2026-07-24

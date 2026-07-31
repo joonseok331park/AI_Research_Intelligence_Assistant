@@ -1,5 +1,9 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import {
+  containsAbsoluteUserPath,
+  isSensitiveFilePath,
+} from "./public-release-rules.mjs";
 
 const root = process.cwd();
 const ignoredDirectories = new Set([
@@ -103,6 +107,9 @@ for (const file of files) {
   const rel = relative(file);
   const extension = path.extname(file).toLowerCase();
 
+  if (isSensitiveFilePath(rel)) {
+    failures.push(`${rel}: public source contains a sensitive file name`);
+  }
   if (audioExtensions.has(extension)) {
     failures.push(`${rel}: public source contains an audio file`);
   }
@@ -112,7 +119,7 @@ for (const file of files) {
   for (const { label, pattern } of secretPatterns) {
     if (pattern.test(text)) failures.push(`${rel}: possible ${label}`);
   }
-  if (/C:\\Users\\slamp/iu.test(text)) {
+  if (containsAbsoluteUserPath(text)) {
     failures.push(`${rel}: contains an absolute local user path`);
   }
 }

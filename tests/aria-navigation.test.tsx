@@ -5,7 +5,11 @@ import {
   AppShell,
   type AppShellContext,
 } from "@/src/components/AppShell";
-import { DepartmentLabsView } from "@/src/components/LabDirectoryViews";
+import {
+  DepartmentLabsView,
+  LabProfileView,
+} from "@/src/components/LabDirectoryViews";
+import { DEMO_LAB_ID } from "@/src/lib/demo";
 import { DEPT_BRAIN_SCIENCES } from "@/src/lib/lab-directory";
 import { LAB_WORKSPACE_ENTRY_SCREEN } from "@/src/lib/lab-navigation";
 
@@ -37,6 +41,7 @@ describe("ARIA hierarchy navigation", () => {
 
     expect(html).toContain("aria-brand-mark");
     expect(html).toContain("AI Research Intelligence Assistant");
+    expect(html).toContain("화면 미리보기 · 인증 아님");
     expect(html).toContain(">Labs<");
     expect(html).not.toContain(">Overview<");
     expect(html).not.toContain(">Settings<");
@@ -80,11 +85,31 @@ describe("researcher protocol access", () => {
     const html = renderDepartment("researcher");
 
     expect(html).not.toContain('disabled=""');
+    expect(html).toContain("합성 데모");
+    expect(html).toContain("합성 예시");
     expect(LAB_WORKSPACE_ENTRY_SCREEN).toBe("protocols");
     expect(html).toContain('data-workspace-destination="protocols"');
   });
 
   it("keeps protocol buttons unavailable in visitor view", () => {
     expect(renderDepartment("visitor")).toContain('disabled=""');
+  });
+
+  it("labels lab profiles and papers as synthetic examples", () => {
+    const html = renderToStaticMarkup(
+      <LabProfileView
+        labId={DEMO_LAB_ID}
+        onBack={() => undefined}
+        onOpenProfile={() => undefined}
+        onOpenWorkspace={() => undefined}
+        onSwitchToResearcher={() => undefined}
+        viewMode="visitor"
+      />,
+    );
+
+    expect(html).toContain("SYNTHETIC LAB PROFILE");
+    expect(html).toContain("합성 데모");
+    expect(html).toContain("주요 논문 (합성 예시)");
+    expect(html).toContain("실제 인증이나 권한 통제가 아닙니다");
   });
 });

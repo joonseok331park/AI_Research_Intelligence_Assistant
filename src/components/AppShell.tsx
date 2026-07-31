@@ -126,7 +126,7 @@ export function AppShell({
                 onClick={() => navigate(item.screen)}
                 title={
                   visitorLocked
-                    ? "연구원 보기에서 내부 작업 공간을 열 수 있습니다."
+                    ? "연구원 화면 미리보기에서 내부 작업 공간을 확인할 수 있습니다. 실제 인증 기능은 아닙니다."
                     : undefined
                 }
                 type="button"
@@ -196,10 +196,11 @@ export function AppShell({
 
           <div className="topbar-actions">
             <div
-              aria-label="공개 및 내부 보기 전환"
+              aria-label="화면 미리보기 모드 전환"
               className="view-mode-toggle"
               role="group"
             >
+              <span className="view-mode-note">화면 미리보기 · 인증 아님</span>
               <button
                 aria-pressed={viewMode === "visitor"}
                 onClick={() => onViewModeChange("visitor")}
@@ -220,11 +221,11 @@ export function AppShell({
               title={
                 demoMode
                   ? "Settings에서 본인의 Gemini API 키를 입력해 주세요."
-                  : "현재 탭에서 본인의 Gemini API 키를 사용 중입니다."
+                  : "현재 탭에 Gemini API 키가 입력되어 있으며 실제 접근은 분석 요청 때 검증됩니다."
               }
             >
               <span className="mode-dot" />
-              <span>{demoMode ? "내 API 키 입력 필요" : "내 Gemini 키 사용 중"}</span>
+              <span>{demoMode ? "내 API 키 입력 필요" : "Gemini 키 입력됨"}</span>
             </span>
           </div>
         </header>
