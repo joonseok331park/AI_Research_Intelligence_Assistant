@@ -1,6 +1,6 @@
 # Third-party notices
 
-최종 업데이트: 2026-07-24
+최종 업데이트: 2026-07-31
 
 ARIA는 여러 오픈소스 패키지와 외부 서비스를 사용합니다. 각 구성요소의
 저작권과 라이선스는 각 권리자에게 있으며 루트의 프로젝트 권리 고지가 이를
@@ -15,7 +15,6 @@ ARIA는 여러 오픈소스 패키지와 외부 서비스를 사용합니다. �
 | Zustand | 클라이언트 상태 관리 | MIT |
 | Dexie | IndexedDB 래퍼 | Apache-2.0 |
 | Zod | 데이터 검증 | MIT |
-| DOMPurify | HTML 정화 | MPL-2.0 또는 Apache-2.0 |
 | PDF.js | PDF 읽기와 렌더링 | Apache-2.0 |
 | Google Gen AI SDK | Gemini API 연결 | Apache-2.0 |
 | Vitest | 테스트 | MIT |

@@ -38,6 +38,18 @@ import { Panel } from "./common";
 
 export type WorkspaceViewMode = "visitor" | "researcher";
 
+function SyntheticDemoNotice() {
+  return (
+    <div className="synthetic-demo-notice" role="note">
+      <strong>합성 데모</strong>
+      <span>
+        이 화면의 연구실·연구자·논문 정보는 기능 설명을 위한 가상
+        자료이며 실제 기관 정보를 나타내지 않습니다.
+      </span>
+    </div>
+  );
+}
+
 interface DirectoryNavigationProps {
   currentLabId?: string;
   onOpenProfile: (labId: string) => void;
@@ -63,7 +75,7 @@ export function LabDirectoryView({
     <div className="page directory-page">
       <header className="page-header">
         <div>
-          <p className="page-kicker">LAB DIRECTORY</p>
+          <p className="page-kicker">SYNTHETIC LAB DIRECTORY</p>
           <h1 className="page-title">연구실 디렉터리</h1>
           <p className="page-description">
             학과와 연구 분야를 살펴본 뒤 공개 연구실 소개 또는 연결된
@@ -71,6 +83,8 @@ export function LabDirectoryView({
           </p>
         </div>
       </header>
+
+      <SyntheticDemoNotice />
 
       <div className="department-grid">
         {DIRECTORY_DEPARTMENTS.map((department) => (
@@ -162,6 +176,8 @@ export function DepartmentLabsView({
         </div>
       </header>
 
+      <SyntheticDemoNotice />
+
       <label className="directory-search">
         <Search aria-hidden size={16} />
         <span className="sr-only">연구실 검색</span>
@@ -190,6 +206,7 @@ export function DepartmentLabsView({
                 <span>
                   <span className="lab-directory-title">
                     <strong>{lab.name}</strong>
+                    <small>합성 예시</small>
                     {workspaceConnected ? (
                       <small>작업 공간 연결됨</small>
                     ) : null}
@@ -218,7 +235,7 @@ export function DepartmentLabsView({
                   onClick={() => onOpenWorkspace(lab.id)}
                   title={
                     viewMode === "visitor"
-                      ? "연구원 보기에서 프로토콜을 열 수 있습니다."
+                      ? "연구원 화면 미리보기로 전환하면 프로토콜 화면을 확인할 수 있습니다. 실제 인증 기능은 아닙니다."
                       : `${lab.name} 프로토콜 작업 공간 열기`
                   }
                   type="button"
@@ -292,7 +309,7 @@ export function LabProfileView({
             <ArrowLeft aria-hidden size={14} />
             {department?.name || "연구실 목록"}
           </button>
-          <p className="page-kicker">PUBLIC LAB PROFILE</p>
+          <p className="page-kicker">SYNTHETIC LAB PROFILE</p>
           <h1 className="page-title">{lab.name}</h1>
           <p className="page-description">
             {lab.pi || "지도교수 정보 미등록"}
@@ -307,7 +324,7 @@ export function LabProfileView({
               type="button"
             >
               <Users aria-hidden size={14} />
-              연구원 보기로 전환
+              연구원 화면 미리보기
             </button>
           ) : (
             <button
@@ -324,6 +341,8 @@ export function LabProfileView({
           )}
         </div>
       </header>
+
+      <SyntheticDemoNotice />
 
       <div className="lab-profile-layout">
         <main>
@@ -347,7 +366,7 @@ export function LabProfileView({
             </div>
           </Panel>
 
-          <Panel title="주요 논문">
+          <Panel title="주요 논문 (합성 예시)">
             {papers.length ? (
               <div className="profile-paper-list">
                 {papers.slice(0, 3).map((paper) => (
@@ -376,8 +395,9 @@ export function LabProfileView({
             <strong>연구실 소개</strong>
           </div>
           <p>
-            방문자 보기에서는 소개와 연구 분야만 공개됩니다. 프로토콜과
-            원본 자료는 연구원 보기에서만 접근할 수 있습니다.
+            방문자·연구원 전환은 기능 설명을 위한 화면 미리보기이며 실제
+            인증이나 권한 통제가 아닙니다. 연구원 화면에서는 합성
+            프로토콜과 원본 자료 흐름을 확인할 수 있습니다.
           </p>
           {workspaceConnected ? (
             <span className="workspace-connection">
@@ -386,7 +406,7 @@ export function LabProfileView({
             </span>
           ) : (
             <span className="workspace-connection is-muted">
-              연구원 보기에서 작업 공간을 열 수 있음
+              연구원 화면 미리보기에서 작업 공간 확인 가능
             </span>
           )}
         </aside>

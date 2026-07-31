@@ -869,7 +869,7 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
         report(
           "extracting",
           18,
-          `${pendingInputs.length}개 자료를 한 번의 요청으로 전사·OCR·구조화 중`,
+          `${pendingInputs.length}개 자료를 형식별 배치로 전사·OCR·구조화 중`,
         );
         try {
           newResults = await provider.extractSources(pendingInputs);

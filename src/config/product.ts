@@ -12,11 +12,11 @@ export const PRODUCT_CONFIG = {
   logoSrc: publicAssetPath("/aria-logo.png"),
   socialImageSrc: publicAssetPath("/og.jpg"),
   demoBundleSrc: publicAssetPath("/downloads/ARIA-example-collection.zip"),
-  shortDescription: "랩실 프로토콜 자동 정형화 서비스",
+  shortDescription: "근거 연결형 실험 프로토콜 초안 도구",
   tagline:
-    "음성·사진·메모·문서를 넣으면, 출처가 연결된 표준 랩실 프로토콜이 됩니다.",
+    "음성·사진·메모·문서를 모아, 출처가 연결된 검토용 프로토콜 초안을 만듭니다.",
   description:
-    "ARIA는 음성, 사진, 메모와 기존 문서를 통합해 출처와 검토 이력이 연결된 표준 랩실 프로토콜을 만듭니다.",
+    "ARIA는 음성, 사진, 메모와 기존 문서를 통합해 출처와 검토 이력이 연결된 실험 프로토콜 초안을 구성합니다.",
   defaultLab: {
     name: "Neural Systems Lab",
     shortName: "NSL",
@@ -45,7 +45,6 @@ export const PRODUCT_CONFIG = {
     ],
   },
   demoUser: "현재 사용자",
-  supportEmail: "aria@example.invalid",
 } as const;
 
 export const AI_DRAFT_NOTICE =

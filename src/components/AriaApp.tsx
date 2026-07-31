@@ -46,10 +46,7 @@ import {
   LabProfileView,
   type WorkspaceViewMode,
 } from "./LabDirectoryViews";
-import {
-  SourcePanel,
-  type SourcePanelArtifact,
-} from "./SourcePanel";
+import { SourcePanel } from "./SourcePanel";
 
 const VIEW_MODE_STORAGE_KEY = "labtrace:view-mode";
 const VIEW_MODE_CHANGE_EVENT = "labtrace:view-mode-change";
@@ -184,7 +181,7 @@ export function AriaApp() {
     [startNew, store.activeProtocol, store.lab?.id, viewMode],
   );
 
-  const selectedArtifact = useMemo<SourcePanelArtifact | undefined>(() => {
+  const selectedArtifact = useMemo<SourceArtifact | undefined>(() => {
     const artifact = store.sources.find(
       (source) => source.id === store.selectedSourceRef?.artifactId,
     );

@@ -1049,7 +1049,7 @@ export function SettingsView({
       const connected = await onApiKeyChanged();
       setApiKeyNotice(
         connected
-          ? "현재 탭에서 사용자 API 키를 사용합니다. F5 또는 탭 종료 시 자동으로 삭제됩니다."
+          ? "현재 탭에 API 키를 입력했습니다. 실제 모델 접근은 분석 요청 때 검증되며, F5 또는 탭 종료 시 키가 삭제됩니다."
           : "API 키 상태를 확인하지 못했습니다. 다시 입력해 주세요.",
       );
     } catch (error) {
@@ -1079,24 +1079,24 @@ export function SettingsView({
         <div>
           <h1 className="page-title">Settings</h1>
           <p className="page-description">
-            AI 연결 상태와 이 브라우저의 프로토콜 데이터를 관리합니다.
+            Gemini API 키 상태와 이 브라우저의 프로토콜 데이터를 관리합니다.
           </p>
         </div>
       </header>
 
       <div className="settings-grid">
-        <Panel title="AI 연결">
+        <Panel title="Gemini API 키 상태">
           <div className="setting-row">
             <div>
               <strong>Gemini API</strong>
               <p>
                 {demoMode
-                  ? "연결 상태를 확인해 주세요. 업로드한 자료는 분석 전까지 브라우저에 보관됩니다."
-                  : "연결됨 · 업로드한 자료를 분석해 프로토콜을 생성할 수 있습니다."}
+                  ? "API 키를 입력해 주세요. 업로드한 자료는 분석 전까지 브라우저에 보관됩니다."
+                  : "현재 탭에 키가 입력되어 있습니다. 실제 연결과 모델 접근은 분석 요청 때 검증됩니다."}
               </p>
             </div>
             <span className={`status status-${demoMode ? "review" : "draft"}`}>
-              {demoMode ? "확인 필요" : "연결됨"}
+              {demoMode ? "키 입력 필요" : "키 입력됨"}
             </span>
           </div>
           <div className="setting-row">

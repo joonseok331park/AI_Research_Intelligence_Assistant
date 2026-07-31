@@ -3422,6 +3422,16 @@ body {
   border-radius: 8px;
 }
 
+.view-mode-note {
+  padding: 0 8px 0 6px;
+  color: #667085;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  border-right: 1px solid #d9dee8;
+}
+
 .view-mode-toggle button {
   min-height: 26px;
   padding: 3px 10px;
@@ -3473,6 +3483,26 @@ body {
 
 .directory-page {
   max-width: 1152px;
+}
+
+.synthetic-demo-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: -8px 0 18px;
+  padding: 10px 12px;
+  color: #475467;
+  font-size: 11px;
+  line-height: 1.55;
+  background: #fffaeb;
+  border: 1px solid #fedf89;
+  border-radius: 8px;
+}
+
+.synthetic-demo-notice strong {
+  flex: 0 0 auto;
+  color: #93370d;
+  font-size: 10px;
 }
 
 .department-grid {

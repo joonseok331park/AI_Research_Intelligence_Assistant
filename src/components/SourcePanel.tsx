@@ -3,33 +3,8 @@
 import { CalendarDays, Gauge, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getLabTraceRepository } from "@/src/lib/db";
+import type { SourceArtifact, SourceRef } from "@/src/types";
 import { SourceTypeIcon } from "./common";
-
-export interface SourcePanelRef {
-  artifactId: string;
-  excerptId?: string;
-  sourceLabel?: string;
-  author?: string;
-  pageNumber?: number;
-  timestampStart?: number;
-  timestampEnd?: number;
-  quote?: string;
-  confidence?: number;
-}
-
-export interface SourcePanelArtifact {
-  id: string;
-  type: string;
-  fileName: string;
-  displayName?: string;
-  author?: string;
-  sourceDate?: string;
-  reliability?: string;
-  extractedText?: string;
-  notes?: string;
-  localBlobKey?: string;
-  mimeType?: string;
-}
 
 const reliabilityLabels: Record<string, string> = {
   current: "현재 사용 중",
@@ -50,8 +25,8 @@ export function SourcePanel({
   artifact,
   onClose,
 }: {
-  sourceRef: SourcePanelRef | null;
-  artifact?: SourcePanelArtifact;
+  sourceRef: SourceRef | null;
+  artifact?: SourceArtifact;
   onClose: () => void;
 }) {
   const [blobPreview, setBlobPreview] = useState<{
@@ -89,7 +64,11 @@ export function SourcePanel({
     sourceRef.pageNumber !== undefined
       ? `PDF ${sourceRef.pageNumber}페이지`
       : sourceRef.timestampStart !== undefined
-        ? `${formatSeconds(sourceRef.timestampStart)}–${formatSeconds(sourceRef.timestampEnd)}`
+        ? `${formatSeconds(sourceRef.timestampStart)}${
+            sourceRef.timestampEnd !== undefined
+              ? `–${formatSeconds(sourceRef.timestampEnd)}`
+              : ""
+          }`
         : "추출 원문";
   const previewUrl =
     blobPreview && blobPreview.key === artifact?.localBlobKey

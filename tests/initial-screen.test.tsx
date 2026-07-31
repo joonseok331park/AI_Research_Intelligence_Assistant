@@ -31,6 +31,9 @@ describe("ARIA initial screen", () => {
     const html = renderToStaticMarkup(<AriaApp />);
 
     expect(html).toContain("연구실 디렉터리");
+    expect(html).toContain("합성 데모");
+    expect(html).toContain("실제 기관 정보를 나타내지 않습니다");
+    expect(html).toContain("화면 미리보기 · 인증 아님");
     expect(html).toContain("화학물리학과");
     expect(html).toContain("뇌과학과");
     expect(html).not.toContain("프로토콜 관리");
