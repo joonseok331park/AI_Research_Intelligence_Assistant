@@ -6,7 +6,7 @@ import {
   type AppShellContext,
 } from "@/src/components/AppShell";
 import {
-  DepartmentLabsView,
+  LabExplorerView,
   LabProfileView,
 } from "@/src/components/LabDirectoryViews";
 import { DEMO_LAB_ID } from "@/src/lib/demo";
@@ -15,11 +15,15 @@ import { LAB_WORKSPACE_ENTRY_SCREEN } from "@/src/lib/lab-navigation";
 
 const directoryContext: AppShellContext = {
   trail: "Labs",
-  title: "연구실 디렉터리",
+  title: "연구실 탐색",
   subtitle: "Directory",
 };
 
-function renderShell(context: AppShellContext, screen: "directory" | "lab-profile") {
+function renderShell(
+  context: AppShellContext,
+  screen: "home" | "directory" | "overview",
+  viewMode: "visitor" | "researcher" = "researcher",
+) {
   return renderToStaticMarkup(
     <AppShell
       context={context}
@@ -28,7 +32,7 @@ function renderShell(context: AppShellContext, screen: "directory" | "lab-profil
       onViewModeChange={() => undefined}
       screen={screen}
       unresolvedCount={0}
-      viewMode="researcher"
+      viewMode={viewMode}
     >
       <div>content</div>
     </AppShell>,
@@ -36,43 +40,54 @@ function renderShell(context: AppShellContext, screen: "directory" | "lab-profil
 }
 
 describe("ARIA hierarchy navigation", () => {
-  it("shows ARIA branding and only Labs in the top-level directory sidebar", () => {
+  it("keeps the site menu in the header and no workspace sidebar outside the workspace", () => {
     const html = renderShell(directoryContext, "directory");
 
     expect(html).toContain("aria-brand-mark");
     expect(html).toContain("AI Research Intelligence Assistant");
     expect(html).toContain("화면 미리보기 · 인증 아님");
-    expect(html).toContain(">Labs<");
+    expect(html).toContain("theme-labs");
+    expect(html).toContain(">연구실 탐색<");
+    expect(html).toContain(">작업 공간<");
     expect(html).not.toContain(">Overview<");
-    expect(html).not.toContain(">Settings<");
     expect(html).not.toContain("sidebar-footer");
   });
 
-  it("shows only the active lab title in the lab-level sidebar footer", () => {
+  it("uses the home zone for the home screen", () => {
+    expect(renderShell(directoryContext, "home")).toContain("theme-home");
+  });
+
+  it("shows the workspace menu and the active lab inside the workspace", () => {
     const labTitle = "Center for Synapse Diversity and Specificity";
     const html = renderShell(
       {
-        trail: "Labs / 뇌과학과",
+        trail: "Lab workspace",
         title: labTitle,
         subtitle: "Synapse Diversity Center",
         activeLabTitle: labTitle,
       },
-      "lab-profile",
+      "overview",
     );
 
-    expect(html).toContain("Labs / 뇌과학과");
+    expect(html).toContain("theme-workspace");
+    expect(html).toContain(">Overview<");
+    expect(html).toContain(">Settings<");
     expect(html).toContain("sidebar-footer");
     expect(html).toContain(`<strong>${labTitle}</strong>`);
+  });
+
+  it("locks the workspace menu in visitor view", () => {
+    const html = renderShell(directoryContext, "directory", "visitor");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>[^<]*<svg[\s\S]*?작업 공간/);
   });
 });
 
 describe("researcher protocol access", () => {
   const renderDepartment = (viewMode: "visitor" | "researcher") =>
     renderToStaticMarkup(
-      <DepartmentLabsView
+      <LabExplorerView
         currentLabId="lab-neural-systems"
-        departmentId={DEPT_BRAIN_SCIENCES}
-        onBack={() => undefined}
+        initialDepartmentId={DEPT_BRAIN_SCIENCES}
         onOpenProfile={() => undefined}
         onOpenWorkspace={() => undefined}
         protocols={[]}
@@ -93,6 +108,15 @@ describe("researcher protocol access", () => {
 
   it("keeps protocol buttons unavailable in visitor view", () => {
     expect(renderDepartment("visitor")).toContain('disabled=""');
+  });
+
+  it("starts the explorer filtered to the requested department", () => {
+    const html = renderDepartment("researcher");
+
+    expect(html).toContain("연구실 탐색");
+    expect(html).toMatch(/aria-checked="true"[^>]*>[\s\S]*?뇌과학과/);
+    expect(html).toContain("Circuit Imaging Lab");
+    expect(html).not.toContain("Surface Dynamics Lab");
   });
 
   it("labels lab profiles and papers as synthetic examples", () => {
