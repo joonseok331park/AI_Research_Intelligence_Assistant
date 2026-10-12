@@ -3,8 +3,6 @@
 import {
   ArrowLeft,
   BookOpen,
-  Building2,
-  ChevronRight,
   FlaskConical,
   LockKeyhole,
   MessageCircleQuestion,
@@ -33,7 +31,7 @@ import {
   getDirectoryLab,
 } from "@/src/lib/lab-directory";
 import { LAB_WORKSPACE_ENTRY_SCREEN } from "@/src/lib/lab-navigation";
-import type { Protocol } from "@/src/types";
+import type { Lab, Protocol } from "@/src/types";
 import { Panel } from "./common";
 
 export type WorkspaceViewMode = "visitor" | "researcher";
@@ -57,12 +55,39 @@ interface DirectoryNavigationProps {
   viewMode: WorkspaceViewMode;
 }
 
-export function LabDirectoryView({
-  onSelectDepartment,
-}: {
-  onSelectDepartment: (departmentId: string) => void;
+const ALL_DEPARTMENTS = "all";
+
+function normalize(value: string) {
+  return value.trim().toLocaleLowerCase("ko-KR");
+}
+
+function labAreas(lab: Lab): string[] {
+  return lab.researchAreas?.length ? lab.researchAreas : [lab.field];
+}
+
+export function LabExplorerView({
+  currentLabId,
+  initialDepartmentId,
+  onOpenProfile,
+  onOpenWorkspace,
+  protocols,
+  unresolvedCount,
+  viewMode,
+}: DirectoryNavigationProps & {
+  initialDepartmentId?: string;
+  protocols: Protocol[];
+  unresolvedCount: number;
 }) {
-  const counts = useMemo(() => {
+  const [query, setQuery] = useState("");
+  const [departmentId, setDepartmentId] = useState(
+    initialDepartmentId && getDepartment(initialDepartmentId)
+      ? initialDepartmentId
+      : ALL_DEPARTMENTS,
+  );
+  const [connectedOnly, setConnectedOnly] = useState(false);
+  const [sort, setSort] = useState<"name" | "department">("department");
+
+  const departmentCounts = useMemo(() => {
     const result = new Map<string, number>();
     DIRECTORY_LABS.forEach((lab) => {
       if (!lab.departmentId) return;
@@ -71,196 +96,306 @@ export function LabDirectoryView({
     return result;
   }, []);
 
-  return (
-    <div className="page directory-page">
-      <header className="page-header">
-        <div>
-          <p className="page-kicker">SYNTHETIC LAB DIRECTORY</p>
-          <h1 className="page-title">연구실 디렉터리</h1>
-          <p className="page-description">
-            학과와 연구 분야를 살펴본 뒤 공개 연구실 소개 또는 연결된
-            프로토콜 작업 공간으로 이동하세요.
-          </p>
-        </div>
-      </header>
+  const suggestedAreas = useMemo(() => {
+    const counts = new Map<string, number>();
+    DIRECTORY_LABS.forEach((lab) =>
+      labAreas(lab).forEach((area) =>
+        counts.set(area, (counts.get(area) ?? 0) + 1),
+      ),
+    );
+    return [...counts.entries()]
+      .sort((left, right) =>
+        right[1] - left[1] || left[0].localeCompare(right[0], "ko"),
+      )
+      .slice(0, 8)
+      .map(([area]) => area);
+  }, []);
 
-      <SyntheticDemoNotice />
-
-      <div className="department-grid">
-        {DIRECTORY_DEPARTMENTS.map((department) => (
-          <button
-            className="department-card"
-            key={department.id}
-            onClick={() => onSelectDepartment(department.id)}
-            type="button"
-          >
-            <span
-              aria-hidden
-              className="department-accent"
-              style={{ backgroundColor: department.color }}
-            />
-            <span className="department-card-copy">
-              <strong>{department.name}</strong>
-              <span>{department.nameEn}</span>
-              <small>{department.description}</small>
-            </span>
-            <span className="department-card-footer">
-              연구실 {counts.get(department.id) ?? 0}개
-              <ChevronRight aria-hidden size={15} />
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function DepartmentLabsView({
-  departmentId,
-  currentLabId,
-  onBack,
-  onOpenProfile,
-  onOpenWorkspace,
-  protocols,
-  unresolvedCount,
-  viewMode,
-}: DirectoryNavigationProps & {
-  departmentId: string;
-  onBack: () => void;
-  protocols: Protocol[];
-  unresolvedCount: number;
-}) {
-  const [query, setQuery] = useState("");
-  const department = getDepartment(departmentId);
   const labs = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("ko-KR");
-    return DIRECTORY_LABS.filter(
-      (lab) =>
-        lab.departmentId === departmentId &&
-        (!normalized ||
-          [lab.name, lab.shortName, lab.pi, lab.field].some((value) =>
-            (value ?? "").toLocaleLowerCase("ko-KR").includes(normalized),
-          )),
-    ).sort((left, right) => {
+    const normalized = normalize(query);
+    const departmentOrder = new Map(
+      DIRECTORY_DEPARTMENTS.map((department) => [
+        department.id,
+        department.order,
+      ]),
+    );
+    return DIRECTORY_LABS.filter((lab) => {
+      if (departmentId !== ALL_DEPARTMENTS && lab.departmentId !== departmentId) {
+        return false;
+      }
+      if (connectedOnly && lab.id !== currentLabId) return false;
+      if (!normalized) return true;
+      const department = lab.departmentId
+        ? getDepartment(lab.departmentId)
+        : undefined;
+      return [
+        lab.name,
+        lab.shortName,
+        lab.pi,
+        lab.field,
+        department?.name,
+        department?.nameEn,
+        ...labAreas(lab),
+      ].some((value) => normalize(value ?? "").includes(normalized));
+    }).sort((left, right) => {
       if (left.id === currentLabId) return -1;
       if (right.id === currentLabId) return 1;
+      if (sort === "department") {
+        const byDepartment =
+          (departmentOrder.get(left.departmentId ?? "") ?? 99) -
+          (departmentOrder.get(right.departmentId ?? "") ?? 99);
+        if (byDepartment) return byDepartment;
+      }
       return left.name.localeCompare(right.name, "ko");
     });
-  }, [currentLabId, departmentId, query]);
+  }, [connectedOnly, currentLabId, departmentId, query, sort]);
 
-  if (!department) {
-    return (
-      <div className="page">
-        <div className="empty-state">
-          <div>
-            <h3>학과 정보를 찾을 수 없습니다</h3>
-            <button className="button" onClick={onBack} type="button">
-              디렉터리로 돌아가기
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const activeDepartment =
+    departmentId === ALL_DEPARTMENTS ? undefined : getDepartment(departmentId);
+  const hasFilters =
+    Boolean(query.trim()) || Boolean(activeDepartment) || connectedOnly;
+  const resetFilters = () => {
+    setQuery("");
+    setDepartmentId(ALL_DEPARTMENTS);
+    setConnectedOnly(false);
+  };
 
   return (
-    <div className="page directory-page">
-      <header className="page-header">
-        <div>
-          <button className="text-link" onClick={onBack} type="button">
-            <ArrowLeft aria-hidden size={14} />
-            전체 학과
-          </button>
-          <h1 className="page-title">{department.name} 연구실</h1>
-          <p className="page-description">{department.description}</p>
+    <div className="page directory-page lab-explorer">
+      <header className="explorer-hero">
+        <p className="page-kicker">SYNTHETIC LAB DIRECTORY</p>
+        <h1 className="page-title">연구실 탐색</h1>
+        <p className="page-description">
+          연구실 이름, 지도교수, 연구 분야로 바로 찾고 학과별로 좁혀 보세요.
+        </p>
+        <form
+          className="explorer-search"
+          onSubmit={(event) => event.preventDefault()}
+          role="search"
+        >
+          <label className="directory-search">
+            <Search aria-hidden size={18} />
+            <span className="sr-only">연구실 검색</span>
+            <input
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="연구실명, 지도교수 또는 연구 분야 검색"
+              type="search"
+              value={query}
+            />
+            {query ? (
+              <button
+                aria-label="검색어 지우기"
+                className="explorer-clear"
+                onClick={() => setQuery("")}
+                type="button"
+              >
+                <X aria-hidden size={15} />
+              </button>
+            ) : null}
+          </label>
+        </form>
+        <div aria-label="추천 검색어" className="explorer-suggestions">
+          <span>추천 검색어</span>
+          {suggestedAreas.map((area) => (
+            <button
+              aria-pressed={normalize(query) === normalize(area)}
+              key={area}
+              onClick={() => setQuery(area)}
+              type="button"
+            >
+              {area}
+            </button>
+          ))}
         </div>
       </header>
 
       <SyntheticDemoNotice />
 
-      <label className="directory-search">
-        <Search aria-hidden size={16} />
-        <span className="sr-only">연구실 검색</span>
-        <input
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="연구실명, 지도교수 또는 연구 분야 검색"
-          type="search"
-          value={query}
-        />
-      </label>
-
-      <div className="lab-directory-list">
-        {labs.map((lab) => {
-          const workspaceConnected = lab.id === currentLabId;
-          const protocolCount = workspaceConnected ? protocols.length : 0;
-          return (
-            <article className="lab-directory-row" key={lab.id}>
+      <div className="explorer-layout">
+        <aside aria-label="연구실 필터" className="explorer-filters">
+          <section>
+            <h2>학과</h2>
+            <div className="explorer-filter-list" role="radiogroup">
               <button
-                className="lab-directory-main"
-                onClick={() => onOpenProfile(lab.id)}
+                aria-checked={departmentId === ALL_DEPARTMENTS}
+                className="explorer-filter"
+                onClick={() => setDepartmentId(ALL_DEPARTMENTS)}
+                role="radio"
                 type="button"
               >
-                <span className="lab-directory-icon">
-                  <Building2 aria-hidden size={18} />
-                </span>
-                <span>
-                  <span className="lab-directory-title">
-                    <strong>{lab.name}</strong>
+                <span>전체 학과</span>
+                <small>{DIRECTORY_LABS.length}</small>
+              </button>
+              {DIRECTORY_DEPARTMENTS.map((department) => (
+                <button
+                  aria-checked={departmentId === department.id}
+                  className="explorer-filter"
+                  key={department.id}
+                  onClick={() => setDepartmentId(department.id)}
+                  role="radio"
+                  title={department.description}
+                  type="button"
+                >
+                  <span>
+                    {department.name}
+                    <em>{department.nameEn}</em>
+                  </span>
+                  <small>{departmentCounts.get(department.id) ?? 0}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section>
+            <h2>작업 공간</h2>
+            <label className="explorer-check">
+              <input
+                checked={connectedOnly}
+                onChange={(event) => setConnectedOnly(event.target.checked)}
+                type="checkbox"
+              />
+              <span>연결된 연구실만 보기</span>
+            </label>
+          </section>
+        </aside>
+
+        <section aria-live="polite" className="explorer-results">
+          <header className="explorer-results-header">
+            <p>
+              <strong>{labs.length}</strong>개 연구실
+              {activeDepartment ? ` · ${activeDepartment.name}` : ""}
+              {query.trim() ? ` · “${query.trim()}”` : ""}
+            </p>
+            <div className="explorer-results-tools">
+              {hasFilters ? (
+                <button
+                  className="text-link"
+                  onClick={resetFilters}
+                  type="button"
+                >
+                  필터 초기화
+                </button>
+              ) : null}
+              <label className="explorer-sort">
+                <span>정렬</span>
+                <select
+                  onChange={(event) =>
+                    setSort(event.target.value as "name" | "department")
+                  }
+                  value={sort}
+                >
+                  <option value="department">학과순</option>
+                  <option value="name">이름순</option>
+                </select>
+              </label>
+            </div>
+          </header>
+
+          {activeDepartment ? (
+            <p className="explorer-department-note">
+              {activeDepartment.description}
+            </p>
+          ) : null}
+
+          <div className="lab-directory-list">
+            {labs.map((lab) => {
+              const workspaceConnected = lab.id === currentLabId;
+              const protocolCount = workspaceConnected ? protocols.length : 0;
+              const department = lab.departmentId
+                ? getDepartment(lab.departmentId)
+                : undefined;
+              return (
+                <article className="lab-directory-row" key={lab.id}>
+                  <div className="lab-directory-labels">
+                    <span className="lab-directory-department">
+                      {department?.name ?? "학과 미지정"}
+                    </span>
                     <small>합성 예시</small>
                     {workspaceConnected ? (
-                      <small>작업 공간 연결됨</small>
+                      <small className="is-connected">작업 공간 연결됨</small>
                     ) : null}
-                  </span>
-                  <span className="lab-directory-meta">
-                    {lab.pi || "지도교수 정보 미등록"} · {lab.field}
-                  </span>
-                  <span className="lab-directory-stats">
-                    프로토콜 {protocolCount}건
-                    {workspaceConnected ? ` · 확인 필요 ${unresolvedCount}건` : ""}
-                  </span>
-                </span>
-              </button>
-              <div className="lab-directory-actions">
-                <button
-                  className="button button-small"
-                  onClick={() => onOpenProfile(lab.id)}
-                  type="button"
-                >
-                  소개
-                </button>
-                <button
-                  className="button button-small button-primary"
-                  data-workspace-destination={LAB_WORKSPACE_ENTRY_SCREEN}
-                  disabled={viewMode === "visitor"}
-                  onClick={() => onOpenWorkspace(lab.id)}
-                  title={
-                    viewMode === "visitor"
-                      ? "연구원 화면 미리보기로 전환하면 프로토콜 화면을 확인할 수 있습니다. 실제 인증 기능은 아닙니다."
-                      : `${lab.name} 프로토콜 작업 공간 열기`
-                  }
-                  type="button"
-                >
-                  {viewMode === "visitor" ? (
-                    <LockKeyhole aria-hidden size={13} />
-                  ) : (
-                    <FlaskConical aria-hidden size={13} />
-                  )}
-                  프로토콜
+                  </div>
+                  <button
+                    className="lab-directory-main"
+                    onClick={() => onOpenProfile(lab.id)}
+                    type="button"
+                  >
+                    <span className="lab-directory-title">
+                      <strong>{lab.name}</strong>
+                      <span>{lab.shortName}</span>
+                    </span>
+                    <span className="lab-directory-meta">
+                      {lab.pi || "지도교수 정보 미등록"}
+                    </span>
+                  </button>
+                  <ul
+                    aria-label={`${lab.name} 연구 분야`}
+                    className="lab-directory-areas"
+                  >
+                    {labAreas(lab).map((area) => (
+                      <li key={area}>
+                        <button onClick={() => setQuery(area)} type="button">
+                          {area}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <footer className="lab-directory-footer">
+                    <span className="lab-directory-stats">
+                      프로토콜 {protocolCount}건
+                      {workspaceConnected
+                        ? ` · 확인 필요 ${unresolvedCount}건`
+                        : ""}
+                    </span>
+                    <div className="lab-directory-actions">
+                      <button
+                        className="button button-small"
+                        onClick={() => onOpenProfile(lab.id)}
+                        type="button"
+                      >
+                        소개
+                      </button>
+                      <button
+                        className="button button-small button-primary"
+                        data-workspace-destination={LAB_WORKSPACE_ENTRY_SCREEN}
+                        disabled={viewMode === "visitor"}
+                        onClick={() => onOpenWorkspace(lab.id)}
+                        title={
+                          viewMode === "visitor"
+                            ? "연구원 화면 미리보기로 전환하면 프로토콜 화면을 확인할 수 있습니다. 실제 인증 기능은 아닙니다."
+                            : `${lab.name} 프로토콜 작업 공간 열기`
+                        }
+                        type="button"
+                      >
+                        {viewMode === "visitor" ? (
+                          <LockKeyhole aria-hidden size={13} />
+                        ) : (
+                          <FlaskConical aria-hidden size={13} />
+                        )}
+                        프로토콜
+                      </button>
+                    </div>
+                  </footer>
+                </article>
+              );
+            })}
+          </div>
+          {labs.length === 0 ? (
+            <div className="empty-state directory-empty">
+              <div>
+                <Search aria-hidden size={24} />
+                <h3>검색 결과가 없습니다</h3>
+                <p>
+                  다른 연구실명이나 연구 분야로 검색하거나 필터를 초기화해
+                  보세요.
+                </p>
+                <button className="button" onClick={resetFilters} type="button">
+                  필터 초기화
                 </button>
               </div>
-            </article>
-          );
-        })}
+            </div>
+          ) : null}
+        </section>
       </div>
-      {labs.length === 0 ? (
-        <div className="empty-state directory-empty">
-          <div>
-            <Search aria-hidden size={24} />
-            <h3>검색 결과가 없습니다</h3>
-            <p>다른 연구실명이나 연구 분야로 검색해 보세요.</p>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -307,7 +442,7 @@ export function LabProfileView({
         <div>
           <button className="text-link" onClick={onBack} type="button">
             <ArrowLeft aria-hidden size={14} />
-            {department?.name || "연구실 목록"}
+            연구실 탐색
           </button>
           <p className="page-kicker">SYNTHETIC LAB PROFILE</p>
           <h1 className="page-title">{lab.name}</h1>

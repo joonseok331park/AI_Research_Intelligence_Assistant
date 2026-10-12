@@ -20,6 +20,7 @@ import {
   getDirectoryLab,
 } from "@/src/lib/lab-directory";
 import { LAB_WORKSPACE_ENTRY_SCREEN } from "@/src/lib/lab-navigation";
+import { DEMO_LAB_ID } from "@/src/lib/demo";
 import {
   AppShell,
   type AppScreen,
@@ -40,12 +41,12 @@ import {
 import { AssistantView, ProtocolDetailView } from "./ProtocolViews";
 import { LoadingScreen } from "./common";
 import {
-  DepartmentLabsView,
   GuideAssistant,
-  LabDirectoryView,
+  LabExplorerView,
   LabProfileView,
   type WorkspaceViewMode,
 } from "./LabDirectoryViews";
+import { HomeView } from "./HomeView";
 import { SourcePanel } from "./SourcePanel";
 
 const VIEW_MODE_STORAGE_KEY = "labtrace:view-mode";
@@ -83,7 +84,8 @@ interface LocalToast {
 
 export function AriaApp() {
   const store = useLabTraceStore();
-  const [screen, setScreen] = useState<AppScreen>("directory");
+  const [screen, setScreen] = useState<AppScreen>("home");
+  const [homeBusy, setHomeBusy] = useState(false);
   const [analysisFiles, setAnalysisFiles] = useState<string[]>([]);
   const [analysisPayload, setAnalysisPayload] =
     useState<AnalysisSourcePayload | null>(null);
@@ -117,6 +119,15 @@ export function AriaApp() {
     }, 4200);
     return () => window.clearTimeout(timer);
   }, [localToast, store]);
+
+  // 상세 화면을 벗어나면 선택한 근거를 닫는다. 안 그러면 다음 화면에 패널이 뜬다.
+  const previousScreenRef = useRef<AppScreen>(screen);
+  useEffect(() => {
+    if (previousScreenRef.current === "detail" && screen !== "detail") {
+      useLabTraceStore.getState().selectSource(null);
+    }
+    previousScreenRef.current = screen;
+  }, [screen]);
 
   const notify = useCallback(
     (message: string, kind: "success" | "error" = "success") => {
@@ -205,6 +216,44 @@ export function AriaApp() {
     });
   };
 
+  const ensureWorkspaceLab = async () => {
+    storeViewMode("researcher");
+    if (useLabTraceStore.getState().lab) return true;
+    const demoLab = getDirectoryLab(DEMO_LAB_ID);
+    if (!demoLab) return false;
+    await store.selectLab(demoLab);
+    return Boolean(useLabTraceStore.getState().lab);
+  };
+
+  const startSample = async () => {
+    if (homeBusy) return;
+    setHomeBusy(true);
+    try {
+      const demoLab = getDirectoryLab(DEMO_LAB_ID);
+      storeViewMode("researcher");
+      if (demoLab && useLabTraceStore.getState().lab?.id !== demoLab.id) {
+        await store.selectLab(demoLab);
+      }
+      const result = await useLabTraceStore.getState().createExampleProtocol();
+      if (result) {
+        setSelectedProfileLabId(DEMO_LAB_ID);
+        setScreen("detail");
+      }
+    } finally {
+      setHomeBusy(false);
+    }
+  };
+
+  const startOwn = async () => {
+    if (homeBusy) return;
+    setHomeBusy(true);
+    try {
+      if (await ensureWorkspaceLab()) await startNew();
+    } finally {
+      setHomeBusy(false);
+    }
+  };
+
   if (!store.hydrated) return <LoadingScreen />;
 
   const active = store.activeProtocol;
@@ -213,7 +262,9 @@ export function AriaApp() {
     store.missingFields.filter((item) => item.status === "unresolved").length;
   const displayedScreen: AppScreen =
     viewMode === "visitor" &&
-    !["directory", "department", "lab-profile", "settings"].includes(screen)
+    !["home", "directory", "department", "lab-profile", "settings"].includes(
+      screen,
+    )
       ? "lab-profile"
       : screen;
   const selectedDepartment = getDepartment(selectedDepartmentId);
@@ -235,10 +286,15 @@ export function AriaApp() {
   ];
 
   let shellContext: AppShellContext;
-  if (displayedScreen === "directory") {
+  if (displayedScreen === "home") {
+    shellContext = {
+      trail: "ARIA",
+      title: "홈",
+    };
+  } else if (displayedScreen === "directory") {
     shellContext = {
       trail: "Labs",
-      title: "연구실 디렉터리",
+      title: "연구실 탐색",
       subtitle: "Directory",
     };
   } else if (displayedScreen === "department") {
@@ -288,24 +344,31 @@ export function AriaApp() {
   };
 
   let content = null;
-  if (displayedScreen === "directory") {
+  if (displayedScreen === "home") {
     content = (
-      <LabDirectoryView
-        onSelectDepartment={(departmentId) => {
-          setSelectedDepartmentId(departmentId);
-          setScreen("department");
+      <HomeView
+        busy={homeBusy}
+        onOpenDirectory={() => {
+          setSelectedDepartmentId("");
+          setScreen("directory");
         }}
+        onStartOwn={() => void startOwn()}
+        onStartSample={() => void startSample()}
       />
     );
-  } else if (displayedScreen === "department") {
+  } else if (
+    displayedScreen === "directory" ||
+    displayedScreen === "department"
+  ) {
+    const initialDepartmentId =
+      displayedScreen === "department" ? selectedDepartmentId : "";
     content = (
-      <DepartmentLabsView
+      <LabExplorerView
         currentLabId={store.lab?.id}
-        departmentId={selectedDepartmentId}
-        onBack={() => setScreen("directory")}
+        initialDepartmentId={initialDepartmentId}
+        key={initialDepartmentId || "all"}
         onOpenProfile={(labId) => {
-          const lab = getDirectoryLab(labId);
-          if (lab?.departmentId) setSelectedDepartmentId(lab.departmentId);
+          setSelectedDepartmentId(initialDepartmentId);
           setSelectedProfileLabId(labId);
           setScreen("lab-profile");
         }}
@@ -504,10 +567,20 @@ export function AriaApp() {
             bump,
           )
         }
+        evidence={
+          <SourcePanel
+            artifact={selectedArtifact}
+            onClose={() => store.selectSource(null)}
+            sourceRef={store.selectedSourceRef}
+            variant="docked"
+          />
+        }
+        onSelectArtifact={selectArtifact}
         onSource={(ref) => store.selectSource(ref)}
         onStatus={(status) => void store.setProtocolStatus(status)}
         onToast={notify}
         protocol={active}
+        selectedSourceRef={store.selectedSourceRef}
         sources={store.sources}
         suggestions={store.suggestions}
         versions={store.versions}
@@ -594,11 +667,13 @@ export function AriaApp() {
       viewMode={viewMode}
     >
       {content}
-      <SourcePanel
-        artifact={selectedArtifact}
-        onClose={() => store.selectSource(null)}
-        sourceRef={store.selectedSourceRef}
-      />
+      {displayedScreen === "detail" && active ? null : (
+        <SourcePanel
+          artifact={selectedArtifact}
+          onClose={() => store.selectSource(null)}
+          sourceRef={store.selectedSourceRef}
+        />
+      )}
       <GuideAssistant />
       <div aria-live="polite" className="toast-region">
         {visibleToast ? (

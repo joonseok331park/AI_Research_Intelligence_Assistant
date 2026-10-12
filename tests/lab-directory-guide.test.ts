@@ -85,7 +85,7 @@ describe("ARIA guide answers", () => {
     ["원본 출처와 인용은 어디서 확인해?", "오른쪽 원본 패널"],
     ["PDF로 내보내기와 다운로드는 어떻게 해?", "내보내기 메뉴"],
     ["Gemini API 키를 바꾸려면?", "API 키 관리"],
-    ["학과와 연구실을 전환하려면?", "‘Labs’"],
+    ["학과와 연구실을 전환하려면?", "‘연구실 탐색’"],
     ["프로토콜 버전 이력과 승인 상태는?", "버전 이력"],
   ])("answers the key navigation question %s", (question, expected) => {
     expect(answerGuideQuestion(question)).toContain(expected);

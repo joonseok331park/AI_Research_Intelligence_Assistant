@@ -48,21 +48,23 @@ Next.js·TypeScript와 Gemini 통합, 디버깅과 합성 데모 검증을 맡�
 아래 화면의 연구실, 연구자, 날짜, 문서번호와 실험 결과는 모두 합성
 자료입니다.
 
-### 프로토콜 요약
+### 첫 화면
 
-![ARIA protocol summary](./docs/screenshots/01-protocol-summary.jpg)
+![ARIA home](./docs/screenshots/01-home.png)
 
 ### 원본 근거 확인
 
-![ARIA evidence trace](./docs/screenshots/02-evidence-trace.jpg)
+왼쪽은 자료 목록, 가운데는 프로토콜, 오른쪽은 선택한 문장의 근거입니다.
 
-### 발표용 충돌 검토 요약
+![ARIA evidence trace](./docs/screenshots/02-evidence-trace.png)
+
+### 충돌·누락 검토
 
 ![ARIA conflict review](./docs/screenshots/03-conflict-review.png)
 
-### 발표용 충돌·누락 요약
+### 연구실 탐색
 
-![ARIA conflict and missing-information overview](./docs/screenshots/04-conflict-and-missing-overview.png)
+![ARIA lab explorer](./docs/screenshots/04-lab-explorer.png)
 
 ## 현재 들어 있는 기능
 
@@ -74,7 +76,7 @@ Next.js·TypeScript와 Gemini 통합, 디버깅과 합성 데모 검증을 맡�
 - 프로토콜 요약, 준비물, 장비 설정, 단계별 절차와 troubleshooting 구성
 - 파일·페이지·인용문·타임스탬프까지 이어지는 근거 추적
 - Markdown 다운로드와 인쇄용 PDF 출력
-- 연구실 디렉터리와 연구실별 프로토콜 관리
+- 연구실 탐색(이름, 연구 분야 검색과 학과 필터)과 연구실별 프로토콜 관리
 
 처리 흐름은 다음과 같습니다.
 

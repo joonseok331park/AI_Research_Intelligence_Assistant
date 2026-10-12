@@ -45,14 +45,17 @@ export function SourceBadge({
   label,
   detail,
   onClick,
+  active = false,
 }: {
   label: string;
   detail?: string;
   onClick?: () => void;
+  active?: boolean;
 }) {
   return (
     <button
-      className="source-badge"
+      aria-pressed={onClick ? active : undefined}
+      className={`source-badge${active ? " is-active" : ""}`}
       onClick={onClick}
       title={`${label}${detail ? ` · ${detail}` : ""}`}
       type="button"

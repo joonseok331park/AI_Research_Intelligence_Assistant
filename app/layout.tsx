@@ -1,7 +1,60 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
+import {
+  Inter,
+  Inter_Tight,
+  Lora,
+  Noto_Serif_KR,
+  Open_Sans,
+  Oswald,
+} from "next/font/google";
 import { PRODUCT_CONFIG } from "@/src/config/product";
 import "./globals.css";
+import "./aria-themes.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  variable: "--font-inter-tight",
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
+const lora = Lora({
+  subsets: ["latin"],
+  variable: "--font-lora",
+  weight: ["400", "500", "700"],
+  display: "swap",
+});
+const oswald = Oswald({
+  subsets: ["latin"],
+  variable: "--font-oswald",
+  weight: ["400", "500"],
+  display: "swap",
+});
+const openSans = Open_Sans({
+  subsets: ["latin"],
+  variable: "--font-open-sans",
+  display: "swap",
+});
+const notoSerifKr = Noto_Serif_KR({
+  weight: ["500", "700"],
+  variable: "--font-noto-serif-kr",
+  preload: false,
+  display: "swap",
+});
+
+const fontVariables = [
+  inter.variable,
+  interTight.variable,
+  lora.variable,
+  oswald.variable,
+  openSans.variable,
+  notoSerifKr.variable,
+].join(" ");
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -46,7 +99,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html className={fontVariables} lang="ko">
       <body
         style={
           {
