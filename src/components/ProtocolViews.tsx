@@ -30,6 +30,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import type {
   AiSuggestion,
@@ -53,10 +54,17 @@ import {
 import {
   InlineNotice,
   Modal,
-  Panel,
   SourceBadge,
+  SourceTypeIcon,
   StatusBadge,
 } from "./common";
+
+const reliabilityLabels: Record<string, string> = {
+  current: "현재 사용 중",
+  legacy: "오래된 자료",
+  reference: "참고 자료",
+  unknown: "알 수 없음",
+};
 
 const statusLabels: Record<ProtocolStatus, string> = {
   draft: "작성 중",
@@ -110,7 +118,8 @@ function StepCard({
   onChange,
   onMove,
   onDelete,
-  onSource,
+  onCite,
+  activeOrigin,
   onToggle,
 }: {
   step: ProtocolStep;
@@ -121,9 +130,11 @@ function StepCard({
   onChange: (patch: Partial<ProtocolStep>) => void;
   onMove: (direction: -1 | 1) => void;
   onDelete: () => void;
-  onSource: (ref: SourceRef) => void;
+  onCite: (origin: string, ref: SourceRef) => void;
+  activeOrigin: string | null;
   onToggle: () => void;
 }) {
+  const actionOrigin = `step:${step.id}:action`;
   if (editMode) {
     return (
       <article className={`step-card${step.unresolved ? " has-warning" : ""}`}>
@@ -283,7 +294,11 @@ function StepCard({
   }
 
   return (
-    <article className={`step-card${step.unresolved ? " has-warning" : ""}`}>
+    <article
+      className={`step-card${step.unresolved ? " has-warning" : ""}${
+        activeOrigin?.startsWith(`step:${step.id}:`) ? " is-cited" : ""
+      }`}
+    >
       <header className="step-header">
         <button
           aria-expanded={expanded}
@@ -318,9 +333,24 @@ function StepCard({
         </label>
       </header>
       {expanded ? <div className="step-body">
-        <p className="step-action">
-          {step.action || "자료에서 확인되지 않음"}
-        </p>
+        {step.sourceRefs.length ? (
+          <button
+            aria-pressed={activeOrigin === actionOrigin}
+            className={`step-action is-citable${
+              activeOrigin === actionOrigin ? " is-selected" : ""
+            }`}
+            onClick={() => onCite(actionOrigin, step.sourceRefs[0])}
+            title="이 문장의 근거 보기"
+            type="button"
+          >
+            <span>{step.action || "자료에서 확인되지 않음"}</span>
+            <span className="step-action-hint">근거 보기</span>
+          </button>
+        ) : (
+          <p className="step-action">
+            {step.action || "자료에서 확인되지 않음"}
+          </p>
+        )}
 
         <div className="condition-grid">
           {step.parameters.length ? (
@@ -336,14 +366,18 @@ function StepCard({
                 <div className="source-badges" style={{ border: 0, margin: 0, paddingTop: 5 }}>
                   {parameter.sourceRefs
                     .slice(0, 2)
-                    .map((ref, refIndex) => (
-                    <SourceBadge
-                      detail={sourceDetail(ref)}
-                      key={`${ref.artifactId}-${ref.excerptId || ref.quote}-${refIndex}`}
-                      label={ref.author}
-                      onClick={() => onSource(ref)}
-                    />
-                    ))}
+                    .map((ref, refIndex) => {
+                      const origin = `step:${step.id}:param:${parameterIndex}:${refIndex}`;
+                      return (
+                        <SourceBadge
+                          active={activeOrigin === origin}
+                          detail={sourceDetail(ref)}
+                          key={`${ref.artifactId}-${ref.excerptId || ref.quote}-${refIndex}`}
+                          label={ref.author}
+                          onClick={() => onCite(origin, ref)}
+                        />
+                      );
+                    })}
                 </div>
               </div>
             ))
@@ -412,14 +446,18 @@ function StepCard({
 
         <div className="source-badges">
           {step.sourceRefs.length ? (
-            step.sourceRefs.map((ref, refIndex) => (
-              <SourceBadge
-                detail={sourceDetail(ref)}
-                key={`${ref.artifactId}-${ref.excerptId || ref.quote}-${refIndex}`}
-                label={`${ref.sourceLabel} · ${ref.author}`}
-                onClick={() => onSource(ref)}
-              />
-            ))
+            step.sourceRefs.map((ref, refIndex) => {
+              const origin = `step:${step.id}:ref:${refIndex}`;
+              return (
+                <SourceBadge
+                  active={activeOrigin === origin}
+                  detail={sourceDetail(ref)}
+                  key={`${ref.artifactId}-${ref.excerptId || ref.quote}-${refIndex}`}
+                  label={`${ref.sourceLabel} · ${ref.author}`}
+                  onClick={() => onCite(origin, ref)}
+                />
+              );
+            })
           ) : (
             <span className="warning-count">
               <AlertTriangle aria-hidden size={12} /> 연결된 출처 없음
@@ -538,6 +576,9 @@ export function ProtocolDetailView({
   onSource,
   onAcceptSuggestion,
   onToast,
+  selectedSourceRef = null,
+  evidence = null,
+  onSelectArtifact,
 }: {
   protocol: ProtocolDocument;
   sources: SourceArtifact[];
@@ -557,8 +598,17 @@ export function ProtocolDetailView({
   onSource: (ref: SourceRef) => void;
   onAcceptSuggestion: (id: string) => void;
   onToast: (message: string, kind?: "success" | "error") => void;
+  selectedSourceRef?: SourceRef | null;
+  evidence?: ReactNode;
+  onSelectArtifact?: (artifact: SourceArtifact) => void;
 }) {
   const [editMode, setEditMode] = useState(false);
+  const [citedOrigin, setCitedOrigin] = useState<string | null>(null);
+  const activeOrigin = selectedSourceRef ? citedOrigin : null;
+  const cite = (origin: string, ref: SourceRef) => {
+    setCitedOrigin(origin);
+    onSource(ref);
+  };
   const [draft, setDraft] = useState<ProtocolSnapshot>(() =>
     cloneSnapshot(protocol.snapshot),
   );
@@ -720,357 +770,59 @@ export function ProtocolDetailView({
   };
 
   return (
-    <div className="page">
-      <button
-        className="button button-small button-quiet"
-        onClick={onBack}
-        type="button"
+    <div className="page protocol-workbench-page">
+      <div
+        className={`protocol-workbench${selectedSourceRef ? " has-selection" : ""}`}
       >
-        <ChevronLeft aria-hidden size={14} /> Protocols
-      </button>
-
-      <section className="protocol-header">
-        <div className="protocol-title-row">
-          <div>
-            {editMode ? (
-              <label className="field">
-                <span>프로토콜 제목</span>
-                <input
-                  className="input"
-                  onChange={(event) =>
-                    setDraft((value) => ({
-                      ...value,
-                      experiment: {
-                        ...value.experiment,
-                        title: event.target.value,
-                      },
-                    }))
-                  }
-                  value={draft.experiment.title}
-                />
-              </label>
-            ) : (
-              <h1>{draft.experiment.title}</h1>
-            )}
-            <div className="protocol-subline">
-              <span>{PRODUCT_CONFIG.defaultLab.name}</span>
-              <StatusBadge status={protocol.status} />
-              <span className="mono">
-                {displayVersion(protocol.currentVersion, protocol.status)}
-              </span>
-              <span>작성 {dateTime(protocol.createdAt)}</span>
-              <span>수정 {dateTime(protocol.updatedAt)}</span>
-              <span>{protocol.createdBy}</span>
-            </div>
-          </div>
-          <div className="field" style={{ minWidth: 150 }}>
-            <label htmlFor="protocol-status">승인 상태</label>
-            <select
-              className="select"
-              id="protocol-status"
-              onChange={(event) => {
-                const nextStatus = event.target.value as ProtocolStatus;
-                if (
-                  nextStatus === "archived" ||
-                  (nextStatus === "approved" &&
-                    unresolvedConflicts.length + unresolvedMissing.length > 0)
-                ) {
-                  setPendingStatus(nextStatus);
-                  return;
-                }
-                onStatus(nextStatus);
-              }}
-              value={protocol.status}
-            >
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="protocol-toolbar">
-          <div className="toolbar">
-            <button
-              className={`button${editMode ? " button-primary" : ""}`}
-              onClick={() => {
-                if (editMode) setSaveOpen(true);
-                else setEditMode(true);
-              }}
-              type="button"
-            >
-              {editMode ? (
-                <Save aria-hidden size={14} />
-              ) : (
-                <Pencil aria-hidden size={14} />
-              )}
-              {editMode ? "수정 저장" : "편집"}
-            </button>
-            {editMode ? (
-              <button
-                className="button"
-                onClick={() => {
-                  setDraft(cloneSnapshot(protocol.snapshot));
-                  setEditMode(false);
-                }}
-                type="button"
-              >
-                <Undo2 aria-hidden size={14} /> 변경 취소
-              </button>
-            ) : null}
-            <button
-              className="button"
-              onClick={() => setVersionsOpen(true)}
-              type="button"
-            >
-              <History aria-hidden size={14} /> 버전 이력
-            </button>
-            <button className="button" onClick={onAssistant} type="button">
-              <MessageSquareText aria-hidden size={14} /> 근거 질의
-            </button>
-          </div>
-          <div className="toolbar">
-            <button className="button" onClick={copy} type="button">
-              <Copy aria-hidden size={14} /> 복사
-            </button>
-            <button className="button" onClick={download} type="button">
-              <FileDown aria-hidden size={14} /> Markdown
-            </button>
-            <button className="button" onClick={print} type="button">
-              <Printer aria-hidden size={14} /> PDF / 인쇄
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="protocol-summary-hero">
-        <div className="protocol-summary-eyebrow">PROTOCOL SUMMARY</div>
-        <h2>프로토콜 요약</h2>
-        <p>{protocolSummary}</p>
-        <div className="protocol-summary-stats" aria-label="프로토콜 요약 지표">
-          <div>
-            <strong>{draft.steps.length}</strong>
-            <span>실험 단계</span>
-          </div>
-          <div>
-            <strong>{sources.length}</strong>
-            <span>원본 자료</span>
-          </div>
-          <div>
-            <strong>{keyConditions.length}</strong>
-            <span>핵심 조건</span>
-          </div>
-          <div>
-            <strong>
-              {unresolvedConflicts.length + unresolvedMissing.length}
-            </strong>
-            <span>확인 필요</span>
-          </div>
-        </div>
-        {keyConditions.length ? (
-          <div className="protocol-summary-conditions">
-            {keyConditions.map((condition) => (
-              <span key={condition}>{condition}</span>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      <div className="protocol-layout">
-        <main className="protocol-main">
-          <section className="protocol-foundation">
-            <header className="protocol-section-heading">
-              <span>01</span>
-              <div>
-                <h2>실험 개요</h2>
-                <p>목적과 실행에 필요한 기본 항목을 먼저 확인하세요.</p>
-              </div>
-            </header>
-            <div className="protocol-overview">
-              <section className="overview-box overview-box-wide">
-              <h3>실험 목적</h3>
-              {editMode ? (
-                <textarea
-                  className="textarea"
-                  onChange={(event) =>
-                    setDraft((value) => ({
-                      ...value,
-                      experiment: {
-                        ...value.experiment,
-                        objective: event.target.value,
-                      },
-                    }))
-                  }
-                  value={draft.experiment.objective}
-                />
-              ) : (
-                <p>
-                  {draft.experiment.objective || "자료에서 확인되지 않음"}
-                </p>
-              )}
-              </section>
-              <section className="overview-box">
-                <h3>준비물 및 시약</h3>
-                <ul>
-                  {listOrUnknown(draft.materials).map((item, itemIndex) => (
-                    <li key={`${item}-${itemIndex}`}>{item}</li>
-                  ))}
-                </ul>
-              </section>
-              <section className="overview-box">
-                <h3>장비 및 설정값</h3>
-                <ul>
-                  {listOrUnknown(draft.equipment).map((item, itemIndex) => (
-                    <li key={`${item}-${itemIndex}`}>{item}</li>
-                  ))}
-                </ul>
-              </section>
-              {(draft.researcherAnswers ?? []).length ? (
-                <section className="overview-box overview-box-wide researcher-answers">
-                  <h3>연구자 확인 답변</h3>
-                  <div className="researcher-answer-list">
-                    {(draft.researcherAnswers ?? []).map((item) => (
-                      <article key={item.missingFieldId}>
-                        <span className="answer-label">Q</span>
-                        <div>
-                          <strong>{item.question}</strong>
-                          <p>
-                            <span className="answer-label answer-label-filled">A</span>
-                            {item.answer}
-                          </p>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-            </div>
-          </section>
-
-          <header className="protocol-section-heading procedure-heading">
-            <span>02</span>
-            <div>
-              <h2>단계별 실험 절차</h2>
-              <p>각 단계의 조건, 체크포인트와 원본 근거를 확인하세요.</p>
-            </div>
+        <aside
+          aria-label="자료 목록"
+          className="workbench-pane workbench-sources"
+        >
+          <header className="workbench-pane-header">
+            <h2>자료 목록</h2>
+            <span>{sources.length}건</span>
           </header>
+          <div className="workbench-source-list">
+            {sources.length ? (
+              sources.map((source) => {
+                const active = selectedSourceRef?.artifactId === source.id;
+                return (
+                  <button
+                    aria-pressed={active}
+                    className={`workbench-source${active ? " is-active" : ""}`}
+                    key={source.id}
+                    onClick={() => {
+                      setCitedOrigin(`source:${source.id}`);
+                      onSelectArtifact?.(source);
+                    }}
+                    type="button"
+                  >
+                    <span className="source-type-icon">
+                      <SourceTypeIcon type={source.type} />
+                    </span>
+                    <span className="workbench-source-copy">
+                      <strong title={source.fileName}>
+                        {source.displayName || source.fileName}
+                      </strong>
+                      <span>
+                        {source.author} · {source.sourceDate.slice(0, 10)}
+                      </span>
+                    </span>
+                    <span className="tag">
+                      {reliabilityLabels[source.reliability] ??
+                        source.reliability}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="muted-copy">연결된 자료가 없습니다.</p>
+            )}
+          </div>
 
-          {draft.steps
-            .slice()
-            .sort((a, b) => a.order - b.order)
-            .map((step) => (
-              <StepCard
-                checked={Boolean(completedSteps[step.id])}
-                editMode={editMode}
-                expanded={expandedSteps[step.id] !== false}
-                key={step.id}
-                onChange={(patch) => updateStep(step.id, patch)}
-                onChecked={(checked) =>
-                  setCompletedSteps((value) => ({
-                    ...value,
-                    [step.id]: checked,
-                  }))
-                }
-                onDelete={() => removeStep(step.id)}
-                onMove={(direction) => moveStep(step.id, direction)}
-                onSource={onSource}
-                onToggle={() =>
-                  setExpandedSteps((value) => ({
-                    ...value,
-                    [step.id]: value[step.id] === false,
-                  }))
-                }
-                step={step}
-              />
-            ))}
-
-          {editMode ? (
-            <button className="button" onClick={addStep} type="button">
-              <Plus aria-hidden size={14} /> 단계 추가
-            </button>
-          ) : null}
-
-          <section className="execution-guide">
-            <header className="panel-header">
-              <div>
-                <h2>다음 실험자를 위한 실행 가이드</h2>
-                <p>원본 자료에 근거한 실행 전 확인 순서</p>
-              </div>
-            </header>
-            <div className="guide-section">
-              <h4>1. 시작 전 확인 사항</h4>
-              <ul>
-                <li>target protein과 phospho-target 여부를 담당자에게 확인</li>
-                <li>membrane 종류와 transfer 장비 모델 확인</li>
-                <li>사용할 primary antibody 제품과 최근 검증 dilution 확인</li>
-              </ul>
-            </div>
-            <div className="guide-section">
-              <h4>2. 반드시 담당자에게 확인할 미해결 질문</h4>
-              <ul>
-                {unresolvedMissing.length ? (
-                  unresolvedMissing.map((item) => (
-                    <li key={item.id}>{item.question}</li>
-                  ))
-                ) : (
-                  <li>현재 표시된 미해결 질문이 없습니다.</li>
-                )}
-              </ul>
-            </div>
-            <div className="guide-section">
-              <h4>3. 자주 발생한 실수와 우선 확인 항목</h4>
-              <ul>
-                {listOrUnknown(
-                  draft.steps.flatMap((step) => step.commonMistakes),
-                ).map((item, itemIndex) => (
-                  <li key={`${item}-${itemIndex}`}>{item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="guide-section">
-              <h4>4. 이상 징후와 troubleshooting</h4>
-              <ul>
-                {listOrUnknown(
-                  draft.steps.flatMap((step) => step.troubleshooting),
-                ).map((item, itemIndex) => (
-                  <li key={`${item}-${itemIndex}`}>{item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="guide-section">
-              <h4>5. AI가 제안하는 개선 아이디어</h4>
-              {suggestions
-                .filter((item) => item.type === "ai_idea")
-                .map((item) => (
-                  <div className="ai-idea" key={item.id}>
-                    <strong>{item.title}</strong>
-                    <div>{item.content}</div>
-                    <div>
-                      {item.warning ||
-                        "원본 자료에서 확인되지 않은 AI 아이디어"}
-                    </div>
-                    {item.status === "proposed" ? (
-                      <button
-                        className="button button-small"
-                        onClick={() => onAcceptSuggestion(item.id)}
-                        style={{ marginTop: 7 }}
-                        type="button"
-                      >
-                        검토 후 수락
-                      </button>
-                    ) : (
-                      <span className="status status-approved">수락됨</span>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </section>
-        </main>
-
-        <aside className="protocol-sidebar">
-          <Panel
-            action={
+          <section className="workbench-health">
+            <header className="workbench-pane-header">
+              <h2>문서 상태</h2>
               <button
                 className="button button-small"
                 onClick={onReview}
@@ -1078,9 +830,7 @@ export function ProtocolDetailView({
               >
                 검토
               </button>
-            }
-            title="문서 상태"
-          >
+            </header>
             <div className="health-list">
               <div className="health-row">
                 <ShieldAlert aria-hidden size={14} />
@@ -1111,28 +861,365 @@ export function ProtocolDetailView({
                 <span className="health-value good">{sources.length}</span>
               </div>
             </div>
-          </Panel>
+          </section>
+        </aside>
 
-          <Panel title="원본 출처">
-            <div className="source-compact-list">
-              {sources.map((source) => (
-                <div className="source-compact" key={source.id}>
-                  <span className="source-type-icon">
-                    <span className="mono">
-                      {source.type.slice(0, 3).toUpperCase()}
-                    </span>
+        <div className="workbench-document">
+          <button
+            className="button button-small button-quiet"
+            onClick={onBack}
+            type="button"
+          >
+            <ChevronLeft aria-hidden size={14} /> Protocols
+          </button>
+
+          <section className="protocol-header">
+            <div className="protocol-title-row">
+              <div>
+                {editMode ? (
+                  <label className="field">
+                    <span>프로토콜 제목</span>
+                    <input
+                      className="input"
+                      onChange={(event) =>
+                        setDraft((value) => ({
+                          ...value,
+                          experiment: {
+                            ...value.experiment,
+                            title: event.target.value,
+                          },
+                        }))
+                      }
+                      value={draft.experiment.title}
+                    />
+                  </label>
+                ) : (
+                  <h1>{draft.experiment.title}</h1>
+                )}
+                <div className="protocol-subline">
+                  <span>{PRODUCT_CONFIG.defaultLab.name}</span>
+                  <StatusBadge status={protocol.status} />
+                  <span className="mono">
+                    {displayVersion(protocol.currentVersion, protocol.status)}
                   </span>
-                  <div>
-                    <strong title={source.fileName}>{source.displayName}</strong>
-                    <span>
-                      {source.author} · {source.sourceDate.slice(0, 10)}
-                    </span>
-                  </div>
-                  <span className="tag">{source.reliability}</span>
+                  <span>작성 {dateTime(protocol.createdAt)}</span>
+                  <span>수정 {dateTime(protocol.updatedAt)}</span>
+                  <span>{protocol.createdBy}</span>
                 </div>
-              ))}
+              </div>
+              <div className="field" style={{ minWidth: 150 }}>
+                <label htmlFor="protocol-status">승인 상태</label>
+                <select
+                  className="select"
+                  id="protocol-status"
+                  onChange={(event) => {
+                    const nextStatus = event.target.value as ProtocolStatus;
+                    if (
+                      nextStatus === "archived" ||
+                      (nextStatus === "approved" &&
+                        unresolvedConflicts.length + unresolvedMissing.length > 0)
+                    ) {
+                      setPendingStatus(nextStatus);
+                      return;
+                    }
+                    onStatus(nextStatus);
+                  }}
+                  value={protocol.status}
+                >
+                  {Object.entries(statusLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </Panel>
+            <div className="protocol-toolbar">
+              <div className="toolbar">
+                <button
+                  className={`button${editMode ? " button-primary" : ""}`}
+                  onClick={() => {
+                    if (editMode) setSaveOpen(true);
+                    else setEditMode(true);
+                  }}
+                  type="button"
+                >
+                  {editMode ? (
+                    <Save aria-hidden size={14} />
+                  ) : (
+                    <Pencil aria-hidden size={14} />
+                  )}
+                  {editMode ? "수정 저장" : "편집"}
+                </button>
+                {editMode ? (
+                  <button
+                    className="button"
+                    onClick={() => {
+                      setDraft(cloneSnapshot(protocol.snapshot));
+                      setEditMode(false);
+                    }}
+                    type="button"
+                  >
+                    <Undo2 aria-hidden size={14} /> 변경 취소
+                  </button>
+                ) : null}
+                <button
+                  className="button"
+                  onClick={() => setVersionsOpen(true)}
+                  type="button"
+                >
+                  <History aria-hidden size={14} /> 버전 이력
+                </button>
+                <button className="button" onClick={onAssistant} type="button">
+                  <MessageSquareText aria-hidden size={14} /> 근거 질의
+                </button>
+              </div>
+              <div className="toolbar">
+                <button className="button" onClick={copy} type="button">
+                  <Copy aria-hidden size={14} /> 복사
+                </button>
+                <button className="button" onClick={download} type="button">
+                  <FileDown aria-hidden size={14} /> Markdown
+                </button>
+                <button className="button" onClick={print} type="button">
+                  <Printer aria-hidden size={14} /> 인쇄·PDF 저장
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="protocol-summary-hero">
+            <div className="protocol-summary-eyebrow">PROTOCOL SUMMARY</div>
+            <h2>프로토콜 요약</h2>
+            <p>{protocolSummary}</p>
+            <div className="protocol-summary-stats" aria-label="프로토콜 요약 지표">
+              <div>
+                <strong>{draft.steps.length}</strong>
+                <span>실험 단계</span>
+              </div>
+              <div>
+                <strong>{sources.length}</strong>
+                <span>원본 자료</span>
+              </div>
+              <div>
+                <strong>{keyConditions.length}</strong>
+                <span>핵심 조건</span>
+              </div>
+              <div>
+                <strong>
+                  {unresolvedConflicts.length + unresolvedMissing.length}
+                </strong>
+                <span>확인 필요</span>
+              </div>
+            </div>
+            {keyConditions.length ? (
+              <div className="protocol-summary-conditions">
+                {keyConditions.map((condition) => (
+                  <span key={condition}>{condition}</span>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <div className="protocol-layout">
+            <div className="protocol-main">
+              <section className="protocol-foundation">
+                <header className="protocol-section-heading">
+                  <span>01</span>
+                  <div>
+                    <h2>실험 개요</h2>
+                    <p>목적과 실행에 필요한 기본 항목을 먼저 확인하세요.</p>
+                  </div>
+                </header>
+                <div className="protocol-overview">
+                  <section className="overview-box overview-box-wide">
+                  <h3>실험 목적</h3>
+                  {editMode ? (
+                    <textarea
+                      className="textarea"
+                      onChange={(event) =>
+                        setDraft((value) => ({
+                          ...value,
+                          experiment: {
+                            ...value.experiment,
+                            objective: event.target.value,
+                          },
+                        }))
+                      }
+                      value={draft.experiment.objective}
+                    />
+                  ) : (
+                    <p>
+                      {draft.experiment.objective || "자료에서 확인되지 않음"}
+                    </p>
+                  )}
+                  </section>
+                  <section className="overview-box">
+                    <h3>준비물 및 시약</h3>
+                    <ul>
+                      {listOrUnknown(draft.materials).map((item, itemIndex) => (
+                        <li key={`${item}-${itemIndex}`}>{item}</li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section className="overview-box">
+                    <h3>장비 및 설정값</h3>
+                    <ul>
+                      {listOrUnknown(draft.equipment).map((item, itemIndex) => (
+                        <li key={`${item}-${itemIndex}`}>{item}</li>
+                      ))}
+                    </ul>
+                  </section>
+                  {(draft.researcherAnswers ?? []).length ? (
+                    <section className="overview-box overview-box-wide researcher-answers">
+                      <h3>연구자 확인 답변</h3>
+                      <div className="researcher-answer-list">
+                        {(draft.researcherAnswers ?? []).map((item) => (
+                          <article key={item.missingFieldId}>
+                            <span className="answer-label">Q</span>
+                            <div>
+                              <strong>{item.question}</strong>
+                              <p>
+                                <span className="answer-label answer-label-filled">A</span>
+                                {item.answer}
+                              </p>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                </div>
+              </section>
+
+              <header className="protocol-section-heading procedure-heading">
+                <span>02</span>
+                <div>
+                  <h2>단계별 실험 절차</h2>
+                  <p>각 단계의 조건, 체크포인트와 원본 근거를 확인하세요.</p>
+                </div>
+              </header>
+
+              {draft.steps
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .map((step) => (
+                  <StepCard
+                    checked={Boolean(completedSteps[step.id])}
+                    editMode={editMode}
+                    expanded={expandedSteps[step.id] !== false}
+                    key={step.id}
+                    onChange={(patch) => updateStep(step.id, patch)}
+                    onChecked={(checked) =>
+                      setCompletedSteps((value) => ({
+                        ...value,
+                        [step.id]: checked,
+                      }))
+                    }
+                    onDelete={() => removeStep(step.id)}
+                    onMove={(direction) => moveStep(step.id, direction)}
+                    activeOrigin={activeOrigin}
+                    onCite={cite}
+                    onToggle={() =>
+                      setExpandedSteps((value) => ({
+                        ...value,
+                        [step.id]: value[step.id] === false,
+                      }))
+                    }
+                    step={step}
+                  />
+                ))}
+
+              {editMode ? (
+                <button className="button" onClick={addStep} type="button">
+                  <Plus aria-hidden size={14} /> 단계 추가
+                </button>
+              ) : null}
+
+              <section className="execution-guide">
+                <header className="panel-header">
+                  <div>
+                    <h2>다음 실험자를 위한 실행 가이드</h2>
+                    <p>원본 자료에 근거한 실행 전 확인 순서</p>
+                  </div>
+                </header>
+                <div className="guide-section">
+                  <h4>1. 시작 전 확인 사항</h4>
+                  <ul>
+                    <li>target protein과 phospho-target 여부를 담당자에게 확인</li>
+                    <li>membrane 종류와 transfer 장비 모델 확인</li>
+                    <li>사용할 primary antibody 제품과 최근 검증 dilution 확인</li>
+                  </ul>
+                </div>
+                <div className="guide-section">
+                  <h4>2. 반드시 담당자에게 확인할 미해결 질문</h4>
+                  <ul>
+                    {unresolvedMissing.length ? (
+                      unresolvedMissing.map((item) => (
+                        <li key={item.id}>{item.question}</li>
+                      ))
+                    ) : (
+                      <li>현재 표시된 미해결 질문이 없습니다.</li>
+                    )}
+                  </ul>
+                </div>
+                <div className="guide-section">
+                  <h4>3. 자주 발생한 실수와 우선 확인 항목</h4>
+                  <ul>
+                    {listOrUnknown(
+                      draft.steps.flatMap((step) => step.commonMistakes),
+                    ).map((item, itemIndex) => (
+                      <li key={`${item}-${itemIndex}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="guide-section">
+                  <h4>4. 이상 징후와 troubleshooting</h4>
+                  <ul>
+                    {listOrUnknown(
+                      draft.steps.flatMap((step) => step.troubleshooting),
+                    ).map((item, itemIndex) => (
+                      <li key={`${item}-${itemIndex}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="guide-section">
+                  <h4>5. AI가 제안하는 개선 아이디어</h4>
+                  {suggestions
+                    .filter((item) => item.type === "ai_idea")
+                    .map((item) => (
+                      <div className="ai-idea" key={item.id}>
+                        <strong>{item.title}</strong>
+                        <div>{item.content}</div>
+                        <div>
+                          {item.warning ||
+                            "원본 자료에서 확인되지 않은 AI 아이디어"}
+                        </div>
+                        {item.status === "proposed" ? (
+                          <button
+                            className="button button-small"
+                            onClick={() => onAcceptSuggestion(item.id)}
+                            style={{ marginTop: 7 }}
+                            type="button"
+                          >
+                            검토 후 수락
+                          </button>
+                        ) : (
+                          <span className="status status-approved">수락됨</span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <aside
+          aria-label="근거"
+          className="workbench-pane workbench-evidence"
+        >
+          {evidence}
         </aside>
       </div>
 

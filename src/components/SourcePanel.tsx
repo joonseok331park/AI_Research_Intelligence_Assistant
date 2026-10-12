@@ -1,6 +1,12 @@
 "use client";
 
-import { CalendarDays, Gauge, UserRound, X } from "lucide-react";
+import {
+  CalendarDays,
+  Gauge,
+  MousePointerClick,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { getLabTraceRepository } from "@/src/lib/db";
 import type { SourceArtifact, SourceRef } from "@/src/types";
@@ -24,10 +30,12 @@ export function SourcePanel({
   sourceRef,
   artifact,
   onClose,
+  variant = "overlay",
 }: {
   sourceRef: SourceRef | null;
   artifact?: SourceArtifact;
   onClose: () => void;
+  variant?: "overlay" | "docked";
 }) {
   const [blobPreview, setBlobPreview] = useState<{
     key: string;
@@ -53,7 +61,27 @@ export function SourcePanel({
     };
   }, [artifact?.localBlobKey]);
 
-  if (!sourceRef) return null;
+  if (!sourceRef) {
+    if (variant !== "docked") return null;
+    return (
+      <section aria-label="원본 근거" className="source-panel is-docked is-empty">
+        <header className="source-panel-header">
+          <div>
+            <h2>선택한 문장의 근거</h2>
+            <p>아직 선택한 문장이 없습니다</p>
+          </div>
+        </header>
+        <div className="source-panel-content evidence-empty">
+          <MousePointerClick aria-hidden size={22} />
+          <p>
+            가운데 프로토콜에서 단계 문장이나 조건 옆 출처 배지를 누르면
+            원본 위치와 인용이 여기에 열립니다.
+          </p>
+          <p>왼쪽 자료 목록에서 자료를 골라도 해당 자료의 근거를 볼 수 있습니다.</p>
+        </div>
+      </section>
+    );
+  }
 
   const label =
     artifact?.displayName ||
@@ -74,13 +102,20 @@ export function SourcePanel({
     blobPreview && blobPreview.key === artifact?.localBlobKey
       ? blobPreview.url
       : null;
+  const docked = variant === "docked";
+  const Wrapper = docked ? "section" : "aside";
   return (
     <>
-      <div className="source-panel-backdrop" onClick={onClose} />
-      <aside aria-label="원본 근거" className="source-panel">
+      {docked ? null : (
+        <div className="source-panel-backdrop" onClick={onClose} />
+      )}
+      <Wrapper
+        aria-label="원본 근거"
+        className={`source-panel${docked ? " is-docked" : ""}`}
+      >
         <header className="source-panel-header">
           <div>
-            <h2>원본 근거</h2>
+            <h2>{docked ? "선택한 문장의 근거" : "원본 근거"}</h2>
             <p>{label}</p>
           </div>
           <button
@@ -177,7 +212,7 @@ export function SourcePanel({
             인식 결과를 함께 확인하세요.
           </p>
         </div>
-      </aside>
+      </Wrapper>
     </>
   );
 }

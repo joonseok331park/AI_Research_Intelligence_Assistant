@@ -551,7 +551,7 @@ export function UploadWorkspaceView({
                   <Circle aria-hidden size={15} />
                 )}
                 <div>
-                  <strong>작성자 메타데이터</strong>
+                  <strong>작성자 정보</strong>
                   <span>없으면 작성자 미상 사용</span>
                 </div>
                 <span className="mono">
