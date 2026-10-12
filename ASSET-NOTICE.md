@@ -9,7 +9,7 @@
 | 경로 | 상태와 허용 범위 |
 | --- | --- |
 | `public/aria-logo.png`, `public/og.jpg`, `public/favicon.*` | ARIA 프로젝트 식별과 포트폴리오 표시용 브랜드 자산입니다. 별도 서면 허락 없이 상표·브랜드 자산으로 재사용할 권리를 부여하지 않습니다. |
-| `docs/screenshots/**` | ARIA 제품 화면과 발표용 시각 자료입니다. 프로젝트 소개·평가·포트폴리오 열람용입니다. |
+| `docs/screenshots/**` | ARIA 제품 화면입니다. 프로젝트 소개·평가·포트폴리오 열람용입니다. |
 | `demo-files/**` | ARIA 기능 확인을 위해 구성한 합성 시연 자료입니다. 실제 실험, 안전 판단, 연구 기록 또는 공식 SOP로 사용하지 마세요. |
 | `public/downloads/ARIA-example-collection.zip` | `demo-files`의 공개 안전 사본입니다. 사람 목소리가 담긴 녹음 파일은 포함하지 않습니다. |
 | `RECORDING_SCRIPT.md` | 선택적 음성 기능 시험을 위한 합성 시연 대본입니다. |
